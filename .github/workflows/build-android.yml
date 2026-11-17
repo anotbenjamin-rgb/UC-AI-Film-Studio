@@ -46,6 +46,7 @@ jobs:
       - name: Create UC Android wrapper
         run: |
           mkdir -p www
+
           cat > www/index.html <<'EOF'
           <!doctype html>
           <html>
@@ -68,7 +69,8 @@ jobs:
               "@capacitor/android": "^7.4.3"
             },
             "devDependencies": {
-              "@capacitor/cli": "^7.4.3"
+              "@capacitor/cli": "^7.4.3",
+              "typescript": "^5.8.3"
             }
           }
           EOF
