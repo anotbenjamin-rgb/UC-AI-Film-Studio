@@ -1,9 +1,11 @@
+
 name: Build UC Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -11,8 +13,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Set up Node
+      - name: Checkout UC
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -24,12 +30,34 @@ jobs:
           java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Android SDK manager not found"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Create UC Android wrapper
         run: |
           mkdir -p www
-          echo '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>' > www/index.html
+          cat > www/index.html <<'EOF'
+          <!doctype html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>UC AI Film Studio</title>
+          </head>
+          <body></body>
+          </html>
+          EOF
+
           cat > package.json <<'EOF'
           {
             "name": "uc-ai-film-studio",
@@ -44,9 +72,12 @@ jobs:
             }
           }
           EOF
+
           npm install
+
           cat > capacitor.config.ts <<'EOF'
           import type { CapacitorConfig } from '@capacitor/cli';
+
           const config: CapacitorConfig = {
             appId: 'com.ucfilmstudio.app',
             appName: 'UC AI Film Studio',
@@ -56,18 +87,24 @@ jobs:
               cleartext: false
             }
           };
+
           export default config;
           EOF
+
           npx cap add android
           npx cap sync android
 
-      - name: Build APK
+      - name: Build UC APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
-      - name: Save APK
+      - name: Upload UC APK
         uses: actions/upload-artifact@v4
         with:
           name: UC-AI-Film-Studio-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-    
+          if-no-files-found: error
+          retention-days: 14
+          
